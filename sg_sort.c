@@ -11,7 +11,6 @@ static list *init() {
 	return &list_start;
 }
 
-// 以下函式能夠對 linked list 元素從小到大排序:
 static list *sort(list *start) { 
     if (!start || !start->next)
         return start;
