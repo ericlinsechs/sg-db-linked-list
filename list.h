@@ -39,6 +39,29 @@ static inline void INIT_SG_LIST_HEAD(list *list)
 }
 
 /**
+ * list_empty - tests whether a list is empty
+ * @head: the list to test.
+ */
+static inline int list_empty(const list *head)
+{
+	return head->next == head;
+}
+
+static inline void list_singular_find_last(list **last, list *head)
+{
+	if (list_empty(head)) {
+		*last = head; 
+		return;
+	}
+
+	list *pos = NULL;
+	for (pos = head->next; !(pos->next == head); pos = pos->next)
+		;
+	*last = pos;
+	return;
+}
+
+/**
  * list_for_each_safe - iterate over a list safe against removal of list entry
  * @pos:	the &struct list_head to use as a loop cursor.
  * @n:		another &struct list_head to use as temporary storage
@@ -48,5 +71,4 @@ static inline void INIT_SG_LIST_HEAD(list *list)
 	for (pos = (head)->next, n = pos->next; \
 	     !(pos == (head)); \
 	     pos = n, n = pos->next)
-
 #endif

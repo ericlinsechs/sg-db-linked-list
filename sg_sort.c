@@ -6,35 +6,47 @@
 #include "list.h"
 
 static LIST_HEAD(list_start);
-static list *init() {
+static list *init()
+{
 	INIT_SG_LIST_HEAD(&list_start);
 	return &list_start;
 }
 
-static list *sort(list *start) { 
-    if (!start || !start->next)
+static list *sort(list *start)
+{ 
+    if (!start || start->next == start)
         return start;
     list *left = start;
     list *right = left->next;
-    left->next = NULL;
+
+    list *last = NULL;
+    list_singular_find_last(&last, left);
+    left->next = left;
+    last->next = right;
 
     left = sort(left);
     right = sort(right);
 
-    for (list *merge = NULL; left || right; ) {
-        if (!right || (left && left->data < right->data)) {
+    for (list *merge = NULL; left || right != start; ) {
+        if (right == start || (left && left->data < right->data)) {
             if (!merge) {
                 start = merge = left;
             } else {
+		left->next = merge->next;
                 merge->next = left;
                 merge = merge->next;
             }
-            left = left->next;
+            left = NULL;
         } else {
             if (!merge) {
                 start = merge = right;
             } else {
-                merge->next = right;
+		if (merge == merge->next) {
+			list *last = NULL;
+			list_singular_find_last(&last, right);
+			merge->next = right;
+			last->next = merge; 
+		}
                 merge = merge->next;
             }
             right = right->next;
@@ -42,32 +54,34 @@ static list *sort(list *start) {
     }
     return start;
 }
-/* append a new node to the head of the list */
-static void append(list **head_ref, int data) {
-    list *new = malloc(sizeof(list));
-    new->data= data, new->next = NULL;
+/* push a new node to the head of the list */
+static void push(list **head_ref, int data)
+{
+    list *new_head = (list *)malloc(sizeof(list));
+    new_head->data = data;
 
     if (!*head_ref) {
-        // the list is empty, create a single node
-	*head_ref = new;
-	INIT_SG_LIST_HEAD(*head_ref);
+	*head_ref = new_head;
+	INIT_LIST_HEAD(*head_ref);
+	// Only `next` would be used in singly linked list
+	(*head_ref)->prev = NULL;
         return;
     }
-
-    list **indirect = head_ref;
-
-    while (*indirect)
-        indirect = &((*indirect)->next);
-
-    *indirect = new;
+    
+    list *last = NULL;
+    list_singular_find_last(&last, *head_ref);
+    new_head->next = *head_ref;
+    last->next = new_head;
+    *head_ref = new_head;
     return;
 }
-static void print(list *head, bool newline) {
+static void print(list *head, bool newline)
+{
     list *curr = head;
     if (!curr)
         printf("The linked list is empty!\n");
 
-    while (curr->next != NULL) {
+    while (curr->next != head) {
         printf("%d ", curr->data);
         curr = curr->next;
     }
@@ -76,11 +90,13 @@ static void print(list *head, bool newline) {
       printf("\n");
 }
 
-static int cmp (const void * a, const void * b) {
+static int cmp (const void * a, const void * b)
+{
    return ( *(int*)a - *(int*)b );
 }
 
-static bool test(list *head, int* ans, int len) {
+static bool test(list *head, int* ans, int len)
+{
     list *curr = head;
     if (!curr) {
         printf("The linked list is empty!\n");
@@ -90,8 +106,6 @@ static bool test(list *head, int* ans, int len) {
     qsort(ans, len, sizeof(int), cmp);
     curr = sort(head);
 
-    list *curr_head = curr;
-
     int i = 0;
     while (i < len) {
         if (curr->data != ans[i]) {
@@ -100,7 +114,7 @@ static bool test(list *head, int* ans, int len) {
         curr = curr->next;
         i++;
     }
-    print(curr_head, false);
+    print(curr, false);
     return true;
 }
 
@@ -109,17 +123,14 @@ static void list_free(list **head_ref)
 	list *head = *head_ref; 
 	list *pos = head;
 	list *n = NULL;
-	while (pos->next != NULL) {
-		n = pos->next;
+	list_for_each_safe(pos, n, head)
 		free(pos);
-		pos = n;
-	}
 	free(pos);
 }
 
 Sort sg_sort = {
     .initialize = init,
-    .push = append,
+    .push = push,
     .print = print,
     .sort = sort,
     .test = test,
